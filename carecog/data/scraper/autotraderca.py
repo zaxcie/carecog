@@ -2,6 +2,7 @@ import re
 import json
 import uuid
 import os
+from multiprocessing import Pool
 
 import requests
 from bs4 import BeautifulSoup
@@ -50,8 +51,9 @@ class AutoTraderCrawler:
             rel_link = link["href"]
 
             if rel_link.startswith("/a/") and rel_link not in self.cache_car_urls:
-                car_urls.append(rel_link)
-                self.cache_car_urls.add(rel_link)
+                car_url = self.domain + rel_link
+                car_urls.append(car_url)
+                self.cache_car_urls.add(car_url)
 
         return car_urls
 
@@ -61,13 +63,8 @@ class AutoTraderCrawler:
         '''
         search_page = requests.get(self.domain + "/cars/", headers=HEADERS, params=self.payload)
         car_urls = self._get_auto_urls(search_page)
-
-        for car_url in car_urls:
-            try:
-                url = self.domain + car_url
-                self.process_car_page(url)
-            except Exception as e:
-                print(e)
+        pool = Pool(6)
+        pool.map(self.process_car_page, car_urls)
 
         print("End search page " + str(self.current_search_idx))
         self.current_search_idx += self.search_by
@@ -101,26 +98,29 @@ class AutoTraderCrawler:
         As a convention, every files a created under data/raw/auto_trader/$car_id/
         :param car_url: The url of a car page
         '''
-        car_id = str(uuid.uuid4())
-        car_path = self.write_data_folder + car_id + "/"
+        try:
+            car_id = str(uuid.uuid4())
+            car_path = self.write_data_folder + car_id + "/"
 
-        if not os.path.exists(car_path):
-            os.makedirs(car_path)
+            if not os.path.exists(car_path):
+                os.makedirs(car_path)
 
-        car_page = requests.get(car_url, headers=HEADERS)
-        car_soup = BeautifulSoup(car_page.content, 'html.parser')
+            car_page = requests.get(car_url, headers=HEADERS)
+            car_soup = BeautifulSoup(car_page.content, 'html.parser')
 
-        vehicle_data = self._extract_vehicle_data(car_soup)
-        img_urls = self._extract_img_urls(car_soup)
-        vehicle_data["img_urls"] = img_urls
+            vehicle_data = self._extract_vehicle_data(car_soup)
+            img_urls = self._extract_img_urls(car_soup)
+            vehicle_data["img_urls"] = img_urls
 
-        for img_url in img_urls:
-            self._download_img(img_url, car_path + img_url.split("/")[-1])
+            for img_url in img_urls:
+                self._download_img(img_url, car_path + img_url.split("/")[-1])
 
-        with open(car_path + "meta.json", "w") as f:
-            json.dump(vehicle_data, f)
+            with open(car_path + "meta.json", "w") as f:
+                json.dump(vehicle_data, f)
 
-        print(car_id)
+            print(car_id)
+        except Exception as e:
+            print(e)
 
     def start_crawl(self):
         '''
