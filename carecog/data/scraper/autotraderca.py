@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from carecog.data.scraper.configs import HEADERS
 
 
-class AutoTraderScraper:
+class AutoTraderCrawler:
     domain = "https://www.autotrader.ca"
     write_data_folder = "data/raw/auto_trader/"
 
@@ -21,6 +21,10 @@ class AutoTraderScraper:
 
     @property
     def payload(self):
+        '''
+        The payload expected by a search page of auto trader
+        :return: dictionnary of payloads to pass to request.get
+        '''
         payload = {"rcp": self.search_by,
                    "rcs": self.current_search_idx,
                    "srt": 9,
@@ -34,6 +38,11 @@ class AutoTraderScraper:
         return payload
 
     def _get_auto_urls(self, search_page):
+        '''
+        Scan a search page to find all url that point to a car page in a search page.
+        :param search_page: request object of an auto trader search page
+        :return: list of urls
+        '''
         soup = BeautifulSoup(search_page.content, 'html.parser')
         car_urls = list()
 
@@ -47,6 +56,9 @@ class AutoTraderScraper:
         return car_urls
 
     def process_search_page(self):
+        '''
+        Process a search page of auto trader. Find every link to a car page and then process those car pages.
+        '''
         search_page = requests.get(self.domain + "/cars/", headers=HEADERS, params=self.payload)
         car_urls = self._get_auto_urls(search_page)
 
@@ -83,6 +95,12 @@ class AutoTraderScraper:
         return urls
 
     def process_car_page(self, car_url):
+        '''
+        Get a car page of auto trader, then parse it and download all images and car spec.
+        As a convention, a uuid is generated as the id of the car page.
+        As a convention, every files a created under data/raw/auto_trader/$car_id/
+        :param car_url: The url of a car page
+        '''
         car_id = str(uuid.uuid4())
         car_path = self.write_data_folder + car_id + "/"
 
@@ -105,6 +123,10 @@ class AutoTraderScraper:
         print(car_id)
 
     def start_crawl(self):
+        '''
+        Start to crawl auto trader.
+        :return:
+        '''
         while True:
             try:
                 self.process_search_page()
