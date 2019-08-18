@@ -51,8 +51,11 @@ class AutoTraderScraper:
         car_urls = self._get_auto_urls(search_page)
 
         for car_url in car_urls:
-            url = self.domain + car_url
-            self.process_car_page(url)
+            try:
+                url = self.domain + car_url
+                self.process_car_page(url)
+            except Exception as e:
+                print(e)
 
         print("End search page " + str(self.current_search_idx))
         self.current_search_idx += self.search_by
@@ -103,7 +106,10 @@ class AutoTraderScraper:
 
     def start_crawl(self):
         while True:
-            self.process_search_page()
+            try:
+                self.process_search_page()
+            except Exception as e:
+                print(e)
 
     @staticmethod
     def _download_img(img_url, img_path):
